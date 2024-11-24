@@ -1,31 +1,11 @@
-from fastapi import FastAPI,UploadFile,File,Form
-from .models import *
-import json
+import uvicorn
+from app import app
 
-# start server -- fastapi dev main.py 
-app = FastAPI()
-
-
-@app.post("/register")
-async def register(user: User):
-    return user
-
-
-@app.post("/login")
-async def login(userlogin: UserLogin):
-    return userlogin
-
-
-@app.post('/uploadDocuments')
-async def documentUplaod  (file: UploadFile,document: str = Form(...)):
-    # Parse the JSON string into a Pydantic model
-    document_data = json.loads(document)
-    parsed_document = Document(**document_data)
-
-    # Do something with the file and parsed document data
-    content = await file.read()
-    return {
-        "filename": file.filename,
-        "document": parsed_document,
-        "file_size": len(content)
-    }
+if __name__ == "__main__":
+    uvicorn.run(
+        "app:app",
+        port=8000,
+        reload=True,  # Enable auto-reload during development
+        workers=1,    # Number of worker processes
+        log_level="info",
+    )
