@@ -6,16 +6,12 @@ from .file import *
 
 
 class UserBase(BaseModel):
-    username: str
     email: str
     fullname: str
 
 
 class UserCreate(UserBase):
     password: str
-    firstName: str
-    lastName: str
-
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None

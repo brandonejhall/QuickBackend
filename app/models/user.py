@@ -1,13 +1,19 @@
-from .files import Files
-from sqlmodel import Field,Relationship,  SQLModel
+from sqlalchemy import String, Integer, Column
+from sqlalchemy.orm import relationship
+from .base import Base
 
 
-class Users(SQLModel, table = True):
-    id: int | None = Field(default=None, primary_key=True)
-    email: str = Field(index=True)
-    username: str = Field(index=True)
-    fullname: str = Field(index=True)
-    files: list["Files"] =  Relationship(back_populates="users")
+
+
+class Users(Base):
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True,nullable=False)
+    email = Column(String, nullable=False , index=True)
+    password = Column(String,  nullable=False,  index=True)
+    fullname = Column(String, nullable=False, index=True)
+    files = relationship("Files", back_populates="users")
 
 
 

@@ -1,10 +1,15 @@
-from .user import *
-from sqlmodel import Field,Relationship,SQLModel
+from sqlalchemy import ForeignKey, Column, Integer, String
+from sqlalchemy.orm import relationship
+
+from .base import Base
 
 
-class Files(SQLModel,table =True):
-    id : int | None = Field(default = None, primary_key=True)
-    file_name : str = Field(index=True)
-    file_type : str = Field()
-    user_id: int | None = Field(default=None, foreign_key="users.id")
-    user: Users | None = Relationship(back_populates="files")
+class Files(Base):
+    __tablename__ = "files"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    filename = Column(String, nullable=False)
+    filepath = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))  # Foreign key to Users table
+
+    users = relationship("Users", back_populates="files")
