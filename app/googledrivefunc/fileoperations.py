@@ -72,6 +72,10 @@ class DriveFileOperations:
                 'name': file_name,
                 'parents': [folder_id] if folder_id else []
             }
+            #Detect mime type
+            def detect_mime_type(content):
+                mime = magic.Magic(mime=True)
+                return mime.from_buffer(content.read(1024))
 
             # Upload file
             media = MediaIoBaseUpload(
