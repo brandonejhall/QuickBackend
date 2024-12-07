@@ -1,6 +1,11 @@
 import io
 from googleapiclient.http import MediaIoBaseUpload
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+SHARE_EMAIL = os.getenv('SHARE_EMAIL')
 
 class DriveFileOperations:
     def __init__(self, drive_service):
@@ -55,6 +60,8 @@ class DriveFileOperations:
 
                     folder_id = folder['id']
                     print(f"✅ Created new folder: {folder_name}")
+
+                    self.share_folder(folder_id, SHARE_EMAIL)
                 else:
                     # Use the first matching folder
                     folder_id = existing_folders[0]['id']
@@ -159,3 +166,59 @@ class DriveFileOperations:
         except Exception as e:
             print(f"❌ Search and delete operation failed: {str(e)}")
             return 0
+
+    def share_folder(self, folder_id, email, role='writer'):
+        """
+        Share a folder with a specific user and create a public sharing link
+
+        Args:
+            folder_id (str): The ID of the folder to share
+            email (str): The email address to share with
+            role (str, optional): Permission role. Defaults to 'writer'.
+
+        Returns:
+            str or None: Shareable link of the folder, or None if sharing fails
+        """
+        try:
+            # Share with specific user
+            user_permission = {
+                'type': 'user',
+                'role': role,
+                'emailAddress': email
+            }
+
+            self.service.permissions().create(
+                fileId=folder_id,
+                body=user_permission,
+                sendNotificationEmail=True,
+                fields='id'
+            ).execute()
+
+            # Create anyone-with-link access
+            anyone_permission = {
+                'type': 'anyone',
+                'role': 'reader',
+                'allowFileDiscovery': False
+            }
+
+            self.service.permissions().create(
+                fileId=folder_id,
+                body=anyone_permission,
+                fields='id'
+            ).execute()
+
+            # Get the shareable link
+            folder = self.service.files().get(
+                fileId=folder_id,
+                fields='webViewLink'
+            ).execute()
+
+            print(f"✅ Successfully shared folder with {email} as {role}")
+            print(f"✅ Created public sharing link")
+            print(f"🔗 Folder access link: {folder['webViewLink']}")
+
+            return folder['webViewLink']
+
+        except Exception as e:
+            print(f"❌ Sharing failed: {str(e)}")
+            return None
