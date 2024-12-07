@@ -1,4 +1,6 @@
 import io
+
+import magic
 from googleapiclient.http import MediaIoBaseUpload
 from dotenv import load_dotenv
 import os
@@ -74,13 +76,16 @@ class DriveFileOperations:
             }
             #Detect mime type
             def detect_mime_type(content):
+                # Read the first 1024 bytes for MIME type detection
                 mime = magic.Magic(mime=True)
-                return mime.from_buffer(content.read(1024))
+                detected_mimetype = mime.from_buffer(content.read(1024))  # Detect MIME type
+                content.seek(0)  # Reset the file pointer for subsequent use
+                return detected_mimetype
 
             # Upload file
             media = MediaIoBaseUpload(
                 content,
-                mimetype='text/plain',  # You might want to detect mimetype dynamically
+                mimetype=detect_mime_type(content),
                 resumable=True
             )
 
