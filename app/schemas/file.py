@@ -5,7 +5,6 @@ from typing import Optional, TYPE_CHECKING
 
 class FileBase(BaseModel):
     filename: str
-    content_type: str
     document_type: str
     email: EmailStr
 

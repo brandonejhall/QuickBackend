@@ -5,6 +5,7 @@ from ..database import get_db
 from ..schemas import UserBase, UserLogin, UserCreate
 from ..models import Users
 
+
 router = APIRouter()
 
 
