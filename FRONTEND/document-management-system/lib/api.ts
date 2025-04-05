@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 export interface Document {
   filename: string
@@ -21,7 +21,7 @@ export const documentApi = {
     formData.append('file', file)
     formData.append('document', JSON.stringify(document))
 
-    const response = await axios.post(`${API_URL}/upload`, formData, {
+    const response = await axios.post(`${API_URL}/documents/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -31,40 +31,33 @@ export const documentApi = {
 
   // Delete a document
   async deleteDocument(email: string, filename: string) {
-    const response = await axios.delete(`${API_URL}/delete/${email}/${filename}`)
+    const response = await axios.delete(`${API_URL}/documents/delete/${email}/${filename}`)
     return response.data
   },
 
   // Get user documents
   async getUserDocuments(email: string): Promise<DocumentResponse[]> {
-    const response = await axios.get(`${API_URL}/documents/${email}`)
+    const response = await axios.get(`${API_URL}/documents/documents/${email}`)
     return response.data
   },
 }
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
 })
 
-// Add request interceptor for authentication
-api.interceptors.request.use(
-  (config) => {
-    // For MVP testing, we'll skip token handling
-    // In production, we would get the token from localStorage or cookies
-    const token = localStorage.getItem("token")
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  },
-)
+// Add request interceptor for auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
