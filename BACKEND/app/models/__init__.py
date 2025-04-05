@@ -1,7 +1,6 @@
-from app.models.files import Files
-from app.models.user import Users
-from ..models.base import Base
+from .base import Base
+from .user import Users, UserRole
+from .files import Files
 
-
-__all__ = ['Users','Files','Base']
+__all__ = ['Base', 'Users', 'Files', 'UserRole']
 

@@ -1,17 +1,17 @@
 import os
 from io import BytesIO
+import json
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
-from app.googledrivefunc import DriveFileOperations
-from app.dependencies import get_drive_file_ops
-from app.schemas import FileBase
-import json
+from ..googledrivefunc import DriveFileOperations
+from ..dependencies import get_drive_file_ops
+from ..schemas import FileBase
 from ..database import get_db
-from ..models import Files,Users
+from ..models import Files, Users
 
 router = APIRouter()
 
@@ -133,3 +133,52 @@ async def delete_document(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+
+@router.get('/documents/{email}')
+async def get_user_documents(email: str, db: Session = Depends(get_db)):
+    try:
+        # Find the user
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Get all documents for the user
+        documents = db.query(Files).filter(Files.user_id == user.id).all()
+        
+        return [{
+            "filename": doc.filename,
+            "document_type": doc.document_type,
+            "created_at": doc.created_at.isoformat() if doc.created_at else None
+        } for doc in documents]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
+    
+
+@router.get('/download/{email}/{filename}')
+async def download_document(
+    email: str,
+    filename: str,
+    drive_ops: DriveFileOperations = Depends(get_drive_file_ops)
+):
+    try:
+        # Find file in Google Drive
+        file_content = drive_ops.download_file(filename, email)
+        return StreamingResponse(
+            io.BytesIO(file_content),
+            media_type='application/octet-stream',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get('/preview/{email}/{filename}')
+async def preview_document(
+    email: str,
+    filename: str,
+    drive_ops: DriveFileOperations = Depends(get_drive_file_ops)
+):
+    try:
+        preview_url = drive_ops.get_preview_url(filename, email)
+        return {"preview_url": preview_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
