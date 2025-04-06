@@ -29,31 +29,19 @@ async def document_upload(drive_ops: DriveFileOperations =
                           document: str = Form(...),
                           db: Session =  Depends(get_db)):
     try:
-        print(f"Starting document upload for file: {file.filename}")
-        
         # Parse the JSON string into a Pydantic model
-        try:
-            document_data = json.loads(document)
-            parsed_document = FileBase(**document_data)
-            parsed_document.filename = file.filename
-            print(f"Parsed document data: {document_data}")
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error: {str(e)}")
-            raise HTTPException(status_code=400, detail="Invalid document data format")
-        except Exception as e:
-            print(f"Error parsing document: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Error parsing document: {str(e)}")
+        document_data = json.loads(document)
+        parsed_document = FileBase(**document_data)
+        parsed_document.filename = file.filename
 
         # Validate file type
         file_extension = os.path.splitext(file.filename)[1]
         if file_extension not in ALLOWED_FILE_TYPES:
-            print(f"Invalid file type: {file_extension}")
             raise HTTPException(status_code=400, detail="Invalid file type")
 
         # Get user
         user = db.query(Users).filter(Users.email == parsed_document.email).first()
         if not user:
-            print(f"User not found: {parsed_document.email}")
             raise HTTPException(status_code=400, detail="User does not exist")
 
         # Check if file already exists
@@ -63,39 +51,23 @@ async def document_upload(drive_ops: DriveFileOperations =
         ).first()
 
         if existing:
-            print(f"File already exists: {parsed_document.filename}")
             raise HTTPException(status_code=400, detail="A file by that name is already loaded")
 
         # Read file content once
         content = await file.read()
-        print(f"File size: {len(content)} bytes")
         
         # Check file size
         if len(content) > MAX_FILE_SIZE:
-            print(f"File too large: {len(content)} bytes")
             raise HTTPException(status_code=413, detail="File too large")
 
-        try:
-            # Save document to folder
-            print("Saving file to Google Drive...")
-            drive_ops.check_and_save_file(
-                file.filename,
-                BytesIO(content),
-                parsed_document.email)
-            print("File saved to Google Drive successfully")
-        except Exception as e:
-            print(f"Error saving to Google Drive: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error saving to Google Drive: {str(e)}")
+        # Save document to folder
+        drive_ops.check_and_save_file(
+            file.filename,
+            BytesIO(content),
+            parsed_document.email)
 
-        try:
-            # Create file record in database
-            print("Creating database record...")
-            db_file = create_file(parsed_document, db, user.id)
-            print("Database record created successfully")
-        except Exception as e:
-            print(f"Error creating database record: {str(e)}")
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error creating database record: {str(e)}")
+        # Create file record in database
+        db_file = create_file(parsed_document, db, user.id)
 
         # Prepare response data
         response_data = {
@@ -111,15 +83,12 @@ async def document_upload(drive_ops: DriveFileOperations =
         else:
             response_data["created_at"] = None
 
-        print("Upload completed successfully")
         return response_data
-
-    except HTTPException:
-        raise
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid document data format")
     except Exception as e:
-        print(f"Unexpected error during upload: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Unexpected error during upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error adding file: {str(e)}")
 
 
 def create_file(file: FileBase, db:Session , user_id):

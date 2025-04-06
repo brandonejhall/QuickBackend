@@ -10,7 +10,10 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "Document Management System",
   description: "Manage your documents securely and efficiently",
-  generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: '/logo-symbol.png',
+  }
 }
 
 export default function RootLayout({

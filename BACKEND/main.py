@@ -15,10 +15,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS - make it more flexible for different environments
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=origins,  # This will now accept multiple origins from environment variable
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,9 +29,10 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Get port from environment variable
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True
+        port=port,
+        reload=False  # Disable reload in production
     ) 

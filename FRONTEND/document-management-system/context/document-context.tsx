@@ -44,33 +44,6 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // Try to get documents from localStorage first
-        const storedDocuments = localStorage.getItem('documents')
-        if (storedDocuments) {
-          const parsedDocuments = JSON.parse(storedDocuments)
-          setDocuments(parsedDocuments)
-          setIsLoading(false)
-          return
-        }
-
-        // If in development, use test documents
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Using test documents in development')
-          const testDocuments = [
-            {
-              id: '1',
-              name: 'Sample Contract.pdf',
-              userId: user.email,
-              uploadedAt: new Date().toISOString(),
-              type: 'contract'
-            }
-          ]
-          setDocuments(testDocuments)
-          localStorage.setItem('documents', JSON.stringify(testDocuments))
-          setIsLoading(false)
-          return
-        }
-
         // Fetch documents from API
         console.log('Fetching documents for user:', user.email)
         const response = await api.get(`/documents/documents/${encodeURIComponent(user.email)}`)
@@ -85,7 +58,6 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
         }))
 
         setDocuments(formattedDocuments)
-        localStorage.setItem('documents', JSON.stringify(formattedDocuments))
       } catch (error) {
         console.error('Error loading documents:', error)
         setDocuments([])
@@ -98,19 +70,11 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   const addDocument = (document: Document) => {
-    setDocuments(prev => {
-      const newDocuments = [...prev, document]
-      localStorage.setItem('documents', JSON.stringify(newDocuments))
-      return newDocuments
-    })
+    setDocuments(prev => [...prev, document])
   }
 
   const removeDocument = (id: string) => {
-    setDocuments(prev => {
-      const newDocuments = prev.filter(doc => doc.id !== id)
-      localStorage.setItem('documents', JSON.stringify(newDocuments))
-      return newDocuments
-    })
+    setDocuments(prev => prev.filter(doc => doc.id !== id))
   }
 
   const uploadDocument = async (document: DocumentUpload) => {
