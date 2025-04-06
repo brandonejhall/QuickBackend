@@ -11,10 +11,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
+import { authApi } from "@/lib/api"
 import Link from "next/link"
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
+  fullname: z.string().min(2, { message: "Full name must be at least 2 characters" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters" }),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -32,6 +34,7 @@ export default function SignupForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
+      fullname: "",
       password: "",
       confirmPassword: "",
     },
@@ -40,20 +43,12 @@ export default function SignupForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: values.email,
-          password: values.password,
-        }),
+      console.log('Submitting signup form with values:', values)
+      await authApi.signup({
+        email: values.email,
+        fullname: values.fullname,
+        password: values.password,
       })
-
-      if (!response.ok) {
-        throw new Error("Signup failed")
-      }
 
       // Automatically log in the user after successful signup
       await login(values.email, values.password)
@@ -63,6 +58,7 @@ export default function SignupForm() {
       })
       router.push("/dashboard")
     } catch (error) {
+      console.error('Signup error:', error)
       toast({
         variant: "destructive",
         title: "Signup failed",
@@ -90,6 +86,19 @@ export default function SignupForm() {
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="fullname"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Full Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John Doe" type="text" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="email"

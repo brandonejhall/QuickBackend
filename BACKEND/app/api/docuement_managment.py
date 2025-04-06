@@ -18,6 +18,10 @@ router = APIRouter()
 MAX_FILE_SIZE = 10 * 1024 * 1024
 ALLOWED_FILE_TYPES = ['.pdf', '.docx', '.txt']
 
+@router.get("/")
+async def get_documents():
+    return {"message": "Document management API is running"}
+
 @router.post('/upload')
 async def document_upload(drive_ops: DriveFileOperations =
                           Depends(get_drive_file_ops),
@@ -25,55 +29,97 @@ async def document_upload(drive_ops: DriveFileOperations =
                           document: str = Form(...),
                           db: Session =  Depends(get_db)):
     try:
+        print(f"Starting document upload for file: {file.filename}")
+        
         # Parse the JSON string into a Pydantic model
-        document_data = json.loads(document)
-        parsed_document = FileBase(**document_data)
-        parsed_document.filename = file.filename
-
-        if file.size > MAX_FILE_SIZE:
-            raise HTTPException(status_code=413, detail="File too large")
+        try:
+            document_data = json.loads(document)
+            parsed_document = FileBase(**document_data)
+            parsed_document.filename = file.filename
+            print(f"Parsed document data: {document_data}")
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid document data format")
+        except Exception as e:
+            print(f"Error parsing document: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Error parsing document: {str(e)}")
 
         # Validate file type
         file_extension = os.path.splitext(file.filename)[1]
         if file_extension not in ALLOWED_FILE_TYPES:
+            print(f"Invalid file type: {file_extension}")
             raise HTTPException(status_code=400, detail="Invalid file type")
 
-        user = user = db.query(Users).filter(Users.email == parsed_document.email).first()
-
-
-        # Check if File is already uploaded
-        if user:
-            existing = db.query(Files).filter(
-                Files.filename == parsed_document.filename,
-                Files.user_id == user.id
-            ).first()  # Use `.first()` to fetch the first matching result, or `None` if no match
-        else:
-            existing = None
+        # Get user
+        user = db.query(Users).filter(Users.email == parsed_document.email).first()
+        if not user:
+            print(f"User not found: {parsed_document.email}")
             raise HTTPException(status_code=400, detail="User does not exist")
 
+        # Check if file already exists
+        existing = db.query(Files).filter(
+            Files.filename == parsed_document.filename,
+            Files.user_id == user.id
+        ).first()
 
         if existing:
+            print(f"File already exists: {parsed_document.filename}")
             raise HTTPException(status_code=400, detail="A file by that name is already loaded")
-        else:
-            create_file(parsed_document,db,user.id)
 
-
-        #Save document to folder
-        drive_ops.check_and_save_file(
-            file.filename,
-            BytesIO(await file.read()),
-            parsed_document.email)
-
-        # Do something with the file and parsed document data
+        # Read file content once
         content = await file.read()
-        return {
+        print(f"File size: {len(content)} bytes")
+        
+        # Check file size
+        if len(content) > MAX_FILE_SIZE:
+            print(f"File too large: {len(content)} bytes")
+            raise HTTPException(status_code=413, detail="File too large")
+
+        try:
+            # Save document to folder
+            print("Saving file to Google Drive...")
+            drive_ops.check_and_save_file(
+                file.filename,
+                BytesIO(content),
+                parsed_document.email)
+            print("File saved to Google Drive successfully")
+        except Exception as e:
+            print(f"Error saving to Google Drive: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error saving to Google Drive: {str(e)}")
+
+        try:
+            # Create file record in database
+            print("Creating database record...")
+            db_file = create_file(parsed_document, db, user.id)
+            print("Database record created successfully")
+        except Exception as e:
+            print(f"Error creating database record: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error creating database record: {str(e)}")
+
+        # Prepare response data
+        response_data = {
+            "id": db_file.id,
             "filename": file.filename,
-            "document": parsed_document,
-            "file_size": len(content)
+            "document_type": parsed_document.document_type,
+            "email": parsed_document.email
         }
+
+        # Safely handle created_at if it exists
+        if hasattr(db_file, 'created_at') and db_file.created_at:
+            response_data["created_at"] = db_file.created_at.isoformat()
+        else:
+            response_data["created_at"] = None
+
+        print("Upload completed successfully")
+        return response_data
+
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Unexpected error during upload: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error adding file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error during upload: {str(e)}")
 
 
 def create_file(file: FileBase, db:Session , user_id):
@@ -145,12 +191,25 @@ async def get_user_documents(email: str, db: Session = Depends(get_db)):
         # Get all documents for the user
         documents = db.query(Files).filter(Files.user_id == user.id).all()
         
-        return [{
-            "filename": doc.filename,
-            "document_type": doc.document_type,
-            "created_at": doc.created_at.isoformat() if doc.created_at else None
-        } for doc in documents]
+        # Format the response
+        formatted_documents = []
+        for doc in documents:
+            document_data = {
+                "id": doc.id,
+                "filename": doc.filename,
+                "document_type": doc.document_type
+            }
+            # Safely handle created_at if it exists
+            if hasattr(doc, 'created_at') and doc.created_at:
+                document_data["created_at"] = doc.created_at.isoformat()
+            else:
+                document_data["created_at"] = None
+                
+            formatted_documents.append(document_data)
+
+        return formatted_documents
     except Exception as e:
+        print(f"Error fetching documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
     
 

@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export interface Document {
   filename: string
@@ -14,14 +14,67 @@ export interface DocumentResponse {
   created_at: string
 }
 
+export interface UserSignup {
+  email: string
+  fullname: string
+  password: string
+}
+
+export interface UserLogin {
+  email: string
+  password: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  role: string
+}
+
+export const authApi = {
+  // Sign up a new user
+  async signup(userData: UserSignup): Promise<{ message: string }> {
+    console.log('Attempting to signup with data:', userData)
+    console.log('API URL:', `${API_URL}/api/auth/signup`)
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/signup`, userData)
+      console.log('Signup response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Signup error:', error)
+      if (axios.isAxiosError(error)) {
+        console.error('Error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers
+        })
+      }
+      throw error
+    }
+  },
+
+  // Login user
+  async login(userData: UserLogin): Promise<AuthResponse> {
+    const response = await axios.post(`${API_URL}/api/auth/login`, userData)
+    return response.data
+  },
+}
+
 export const documentApi = {
+  // Get documents root
+  async getDocumentsRoot() {
+    const response = await axios.get(`${API_URL}/api/documents`)
+    return response.data
+  },
+
   // Upload a document
   async uploadDocument(file: File, document: Document) {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('document', JSON.stringify(document))
 
-    const response = await axios.post(`${API_URL}/documents/upload`, formData, {
+    const response = await axios.post(`${API_URL}/api/documents/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -31,20 +84,20 @@ export const documentApi = {
 
   // Delete a document
   async deleteDocument(email: string, filename: string) {
-    const response = await axios.delete(`${API_URL}/documents/delete/${email}/${filename}`)
+    const response = await axios.delete(`${API_URL}/api/documents/delete/${email}/${filename}`)
     return response.data
   },
 
   // Get user documents
   async getUserDocuments(email: string): Promise<DocumentResponse[]> {
-    const response = await axios.get(`${API_URL}/documents/documents/${email}`)
+    const response = await axios.get(`${API_URL}/api/documents/documents/${email}`)
     return response.data
   },
 }
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_URL}/api`,
   headers: {
     "Content-Type": "application/json",
   },
