@@ -12,6 +12,19 @@ import { useDocuments } from "@/context/document-context"
 import { documentApi } from "@/lib/api"
 import { useEffect, useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface RecentUpload {
   id: number
@@ -44,6 +57,23 @@ export default function DashboardPage() {
       toast({
         title: "Error",
         description: "Failed to load recent uploads",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDelete = async (filename: string, userEmail: string) => {
+    try {
+      await documentApi.deleteDocument(userEmail, filename)
+      toast({
+        title: "Success",
+        description: "Document deleted successfully"
+      })
+      loadRecentUploads() // Refresh the list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete document",
         variant: "destructive"
       })
     }
@@ -111,6 +141,31 @@ export default function DashboardPage() {
                               Uploaded by: {upload.user.fullname} ({upload.user.email})
                             </p>
                           </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the document "{upload.filename}" uploaded by {upload.user.fullname}.
+                                  This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(upload.filename, upload.user.email)}
+                                  className="bg-red-500 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       ))}
                     </div>
