@@ -3,7 +3,7 @@
 import ProtectedRoute from '@/components/auth/protected-route'
 import Image from "next/image"
 import DocumentList from "@/components/documents/document-list"
-import AdminDocumentList from "@/components/documents/admin-document-list"
+import UserLookup from "@/components/admin/user-lookup"
 import UploadDocument from "@/components/documents/upload-document"
 import DashboardStats from "@/components/dashboard/dashboard-stats"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,10 +13,6 @@ import { useDocuments } from "@/context/document-context"
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth()
   const { documents, isLoading } = useDocuments()
-
-  // Admin-specific stats
-  const totalDocuments = documents.length
-  const totalUsers = new Set(documents.map(doc => doc.userId)).size
 
   return (
     <ProtectedRoute>
@@ -30,25 +26,14 @@ export default function DashboardPage() {
           <>
             <div className="grid gap-6 md:grid-cols-3">
               <div className="md:col-span-2">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-brims-blue">Total Documents</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold">{totalDocuments}</p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-brims-blue">Total Users</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold">{totalUsers}</p>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-brims-blue">User Lookup</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <UserLookup />
+                  </CardContent>
+                </Card>
               </div>
               <Card>
                 <CardHeader>
@@ -74,10 +59,10 @@ export default function DashboardPage() {
             <div className="grid gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-brims-blue">All Documents</CardTitle>
+                  <CardTitle className="text-brims-blue">Recent Uploads</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AdminDocumentList />
+                  <DocumentList email={user?.email || ''} limit={10} />
                 </CardContent>
               </Card>
             </div>

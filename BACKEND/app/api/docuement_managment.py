@@ -252,3 +252,28 @@ async def preview_document(
         return {"preview_url": preview_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get('/users/search/{query}')
+async def search_users(query: str, db: Session = Depends(get_db)):
+    try:
+        # Search for users by email or name
+        users = db.query(Users).filter(
+            (Users.email.ilike(f"%{query}%")) | 
+            (Users.fullname.ilike(f"%{query}%"))
+        ).all()
+        
+        # Format the response
+        formatted_users = []
+        for user in users:
+            user_data = {
+                "id": user.id,
+                "email": user.email,
+                "fullname": user.fullname,
+                "role": user.role
+            }
+            formatted_users.append(user_data)
+
+        return formatted_users
+    except Exception as e:
+        print(f"Error searching users: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error searching users: {str(e)}")

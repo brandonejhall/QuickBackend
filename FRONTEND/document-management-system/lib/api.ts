@@ -93,6 +93,12 @@ export const documentApi = {
     const response = await axios.get(`${API_URL}/api/documents/documents/${email}`)
     return response.data
   },
+
+  // Search users
+  async searchUsers(query: string) {
+    const response = await axios.get(`${API_URL}/api/documents/users/search/${query}`)
+    return response.data
+  },
 }
 
 // Create an axios instance with default config

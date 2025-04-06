@@ -1,55 +1,56 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
+import { documentApi } from "@/lib/api"
+import UserDocumentsDialog from "./user-documents-dialog"
 
-// Mock users for demo
-const MOCK_USERS = [
-  { id: "1", email: "john.doe@example.com", name: "John Doe" },
-  { id: "2", email: "jane.smith@example.com", name: "Jane Smith" },
-  { id: "3", email: "bob.johnson@example.com", name: "Bob Johnson" },
-]
+interface User {
+  id: number
+  email: string
+  fullname: string
+  role: string
+}
 
 export default function UserLookup() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchResults, setSearchResults] = useState<typeof MOCK_USERS>([])
+  const [searchResults, setSearchResults] = useState<User[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const { toast } = useToast()
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!searchTerm.trim()) return
 
     setIsSearching(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      const results = MOCK_USERS.filter((user) => user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-
+    try {
+      const results = await documentApi.searchUsers(searchTerm)
       setSearchResults(results)
-      setIsSearching(false)
-
+      
       if (results.length === 0) {
         toast({
           title: "No users found",
           description: `No users found matching "${searchTerm}"`,
         })
       }
-    }, 500)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to search users. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSearching(false)
+    }
   }
 
-  const handleSelectUser = (userId: string) => {
-    // In a real app, this would select the user and show their documents
-    console.log("Selected user:", userId)
-    toast({
-      title: "User selected",
-      description: "User documents loaded successfully.",
-    })
+  const handleSelectUser = (user: User) => {
+    setSelectedUser(user)
   }
 
   return (
@@ -59,7 +60,7 @@ export default function UserLookup() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by email..."
+            placeholder="Search by email or name..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -77,13 +78,13 @@ export default function UserLookup() {
             {searchResults.map((user) => (
               <div key={user.id} className="flex items-center justify-between p-3">
                 <div>
-                  <p className="font-medium">{user.name}</p>
+                  <p className="font-medium">{user.fullname}</p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleSelectUser(user.id)}
+                  onClick={() => handleSelectUser(user)}
                   className="border-brims-blue text-brims-blue hover:bg-brims-blue/10"
                 >
                   View Documents
@@ -92,6 +93,16 @@ export default function UserLookup() {
             ))}
           </div>
         </div>
+      )}
+
+      {selectedUser && (
+        <UserDocumentsDialog
+          userId={selectedUser.id}
+          userEmail={selectedUser.email}
+          userName={selectedUser.fullname}
+          open={!!selectedUser}
+          onOpenChange={(open) => !open && setSelectedUser(null)}
+        />
       )}
     </div>
   )
