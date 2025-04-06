@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from . import auth,docuement_managment
+from . import auth, document_management
 
 api_router = APIRouter()
 
@@ -7,11 +7,11 @@ api_router = APIRouter()
 api_router.include_router(
     auth.router,
     prefix="/auth",
-    tags=["authentication"]
+    tags=["auth"]
 )
 
 api_router.include_router(
-    docuement_managment.router,
+    document_management.router,
     prefix="/documents",
     tags=["documents"]
 )

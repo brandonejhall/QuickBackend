@@ -9,10 +9,45 @@ import DashboardStats from "@/components/dashboard/dashboard-stats"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from '@/context/auth-context'
 import { useDocuments } from "@/context/document-context"
+import { documentApi } from "@/lib/api"
+import { useEffect, useState } from "react"
+import { useToast } from "@/components/ui/use-toast"
+
+interface RecentUpload {
+  id: number
+  filename: string
+  document_type: string
+  created_at: string
+  user: {
+    email: string
+    fullname: string
+  }
+}
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth()
   const { documents, isLoading } = useDocuments()
+  const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([])
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadRecentUploads()
+    }
+  }, [isAdmin])
+
+  const loadRecentUploads = async () => {
+    try {
+      const uploads = await documentApi.getRecentUploads()
+      setRecentUploads(uploads)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load recent uploads",
+        variant: "destructive"
+      })
+    }
+  }
 
   return (
     <ProtectedRoute>
@@ -62,7 +97,24 @@ export default function DashboardPage() {
                   <CardTitle className="text-brims-blue">Recent Uploads</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <DocumentList email={user?.email || ''} limit={10} />
+                  <div className="rounded-md border">
+                    <div className="bg-brims-blue p-2 text-sm font-medium text-white">Last 10 Uploads</div>
+                    <div className="divide-y">
+                      {recentUploads.map((upload) => (
+                        <div key={upload.id} className="flex items-center justify-between p-3">
+                          <div>
+                            <p className="font-medium">{upload.filename}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {upload.document_type} • {new Date(upload.created_at).toLocaleDateString()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Uploaded by: {upload.user.fullname} ({upload.user.email})
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

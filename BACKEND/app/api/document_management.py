@@ -256,7 +256,7 @@ async def preview_document(
 @router.get('/users/search/{query}')
 async def search_users(query: str, db: Session = Depends(get_db)):
     try:
-        # Search for users by email or name
+        # Search for users by email or fullname
         users = db.query(Users).filter(
             (Users.email.ilike(f"%{query}%")) | 
             (Users.fullname.ilike(f"%{query}%"))
@@ -272,8 +272,43 @@ async def search_users(query: str, db: Session = Depends(get_db)):
                 "role": user.role
             }
             formatted_users.append(user_data)
-
+            
         return formatted_users
     except Exception as e:
         print(f"Error searching users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error searching users: {str(e)}")
+
+@router.get('/recent-uploads')
+async def get_recent_uploads(limit: int = 10, db: Session = Depends(get_db)):
+    try:
+        print("Fetching recent uploads...")
+        # Get recent uploads with user information
+        recent_uploads = db.query(Files, Users).join(
+            Users, Files.user_id == Users.id
+        ).order_by(
+            Files.created_at.desc()
+        ).limit(limit).all()
+        
+        print(f"Found {len(recent_uploads)} recent uploads")
+        
+        # Format the response
+        formatted_uploads = []
+        for file, user in recent_uploads:
+            upload_data = {
+                "id": file.id,
+                "filename": file.filename,
+                "document_type": file.document_type,
+                "created_at": file.created_at.isoformat() if file.created_at else None,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "fullname": user.fullname
+                }
+            }
+            formatted_uploads.append(upload_data)
+            
+        print("Formatted uploads:", formatted_uploads)
+        return formatted_uploads
+    except Exception as e:
+        print(f"Error fetching recent uploads: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching recent uploads: {str(e)}") 

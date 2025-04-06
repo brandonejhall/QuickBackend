@@ -99,6 +99,19 @@ export const documentApi = {
     const response = await axios.get(`${API_URL}/api/documents/users/search/${query}`)
     return response.data
   },
+
+  // Get recent uploads
+  async getRecentUploads(limit: number = 10) {
+    try {
+      console.log('Fetching recent uploads...')
+      const response = await axios.get(`${API_URL}/api/documents/recent-uploads?limit=${limit}`)
+      console.log('Recent uploads response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error fetching recent uploads:', error)
+      throw error
+    }
+  }
 }
 
 // Create an axios instance with default config
