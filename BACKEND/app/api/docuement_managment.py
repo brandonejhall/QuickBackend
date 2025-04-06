@@ -5,7 +5,8 @@ import json
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
+from fastapi.responses import Response
 
 from ..googledrivefunc import DriveFileOperations
 from ..dependencies import get_drive_file_ops
@@ -186,18 +187,59 @@ async def get_user_documents(email: str, db: Session = Depends(get_db)):
 async def download_document(
     email: str,
     filename: str,
-    drive_ops: DriveFileOperations = Depends(get_drive_file_ops)
+    drive_ops: DriveFileOperations = Depends(get_drive_file_ops),
+    db: Session = Depends(get_db)
 ):
     try:
-        # Find file in Google Drive
-        file_content = drive_ops.download_file(filename, email)
-        return StreamingResponse(
-            io.BytesIO(file_content),
-            media_type='application/octet-stream',
-            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-        )
+        # Find the user
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Find the file in the database
+        db_file = db.query(Files).filter(
+            Files.filename == filename,
+            Files.user_id == user.id
+        ).first()
+
+        if not db_file:
+            raise HTTPException(status_code=404, detail="File not found in database")
+
+        # Find file in Google Drive and get content
+        try:
+            file_content = drive_ops.download_file(filename, email)
+            
+            # Determine content type based on file extension
+            content_type = 'application/octet-stream'  # default
+            if filename.lower().endswith('.pdf'):
+                content_type = 'application/pdf'
+            elif filename.lower().endswith('.docx'):
+                content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif filename.lower().endswith('.txt'):
+                content_type = 'text/plain'
+
+            return StreamingResponse(
+                BytesIO(file_content),
+                media_type=content_type,
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Length': str(len(file_content))
+                }
+            )
+        except Exception as e:
+            print(f"Error downloading file from Google Drive: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error downloading file from storage: {str(e)}"
+            )
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error processing download request: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing download request: {str(e)}"
+        )
     
 @router.get('/preview/{email}/{filename}')
 async def preview_document(

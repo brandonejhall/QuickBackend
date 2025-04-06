@@ -3,6 +3,7 @@
 import ProtectedRoute from '@/components/auth/protected-route'
 import Image from "next/image"
 import DocumentList from "@/components/documents/document-list"
+import AdminDocumentList from "@/components/documents/admin-document-list"
 import UploadDocument from "@/components/documents/upload-document"
 import DashboardStats from "@/components/dashboard/dashboard-stats"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +17,6 @@ export default function DashboardPage() {
   // Admin-specific stats
   const totalDocuments = documents.length
   const totalUsers = new Set(documents.map(doc => doc.userId)).size
-  const recentDocuments = documents.slice(0, 5)
 
   return (
     <ProtectedRoute>
@@ -71,46 +71,13 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-brims-blue">Admin Actions</CardTitle>
+                  <CardTitle className="text-brims-blue">All Documents</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <button className="w-full rounded-md bg-brims-blue px-4 py-2 text-sm text-white hover:bg-brims-blue/90">
-                      Manage Users
-                    </button>
-                    <button className="w-full rounded-md bg-brims-blue px-4 py-2 text-sm text-white hover:bg-brims-blue/90">
-                      View Reports
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-brims-blue">Recent Documents</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <p>Loading documents...</p>
-                  ) : recentDocuments.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentDocuments.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between rounded-lg border p-4">
-                          <div>
-                            <p className="font-medium">{doc.name}</p>
-                            <p className="text-sm text-muted-foreground">Uploaded by: {doc.userId}</p>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(doc.uploadedAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p>No documents found</p>
-                  )}
+                  <AdminDocumentList />
                 </CardContent>
               </Card>
             </div>

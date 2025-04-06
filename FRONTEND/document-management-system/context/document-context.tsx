@@ -26,6 +26,7 @@ interface DocumentContextType {
   removeDocument: (id: string) => void
   uploadDocument: (document: DocumentUpload) => Promise<any>
   deleteDocument: (id: string) => Promise<void>
+  downloadDocument: (filename: string, email: string) => Promise<void>
 }
 
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined)
@@ -146,13 +147,41 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const downloadDocument = async (filename: string, email: string) => {
+    try {
+      const response = await api.get(`/documents/download/${email}/${filename}`, {
+        responseType: 'blob'
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      throw error;
+    }
+  };
+
   const value = {
     documents,
     isLoading,
     addDocument,
     removeDocument,
     uploadDocument,
-    deleteDocument
+    deleteDocument,
+    downloadDocument
   }
 
   return <DocumentContext.Provider value={value}>{children}</DocumentContext.Provider>

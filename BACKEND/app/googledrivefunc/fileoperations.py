@@ -1,7 +1,7 @@
 import io
 
 import magic
-from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from dotenv import load_dotenv
 import os
 
@@ -231,3 +231,63 @@ class DriveFileOperations:
         except Exception as e:
             print(f"❌ Sharing failed: {str(e)}")
             return None
+
+    def download_file(self, file_name, folder_name):
+        """
+        Download a file from Google Drive.
+
+        Args:
+            file_name (str): Name of the file to download
+            folder_name (str): Name of the parent folder
+
+        Returns:
+            bytes: File content as bytes
+        """
+        try:
+            # First, find the file in the specified folder
+            query = f"name = '{file_name}' and trashed = false"
+
+            # Find the folder ID first
+            folder_query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            folders = self.service.files().list(
+                q=folder_query,
+                spaces='drive',
+                fields='files(id)'
+            ).execute()
+
+            folder_ids = [folder['id'] for folder in folders.get('files', [])]
+            if not folder_ids:
+                raise Exception(f"Folder not found: {folder_name}")
+
+            # Add folder parent condition to the file search
+            folder_conditions = " or ".join([f"'{folder_id}' in parents" for folder_id in folder_ids])
+            query += f" and ({folder_conditions})"
+
+            # Search for the file
+            results = self.service.files().list(
+                q=query,
+                spaces='drive',
+                fields='files(id, name, mimeType)'
+            ).execute()
+
+            files = results.get('files', [])
+            if not files:
+                raise Exception(f"File not found: {file_name}")
+
+            file = files[0]  # Use the first matching file
+            file_id = file['id']
+
+            # Download the file content
+            request = self.service.files().get_media(fileId=file_id)
+            file_content = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_content, request)
+            
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+
+            return file_content.getvalue()
+
+        except Exception as e:
+            print(f"❌ Download failed: {str(e)}")
+            raise Exception(f"Error downloading file: {str(e)}")
