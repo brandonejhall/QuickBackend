@@ -16,7 +16,7 @@ app = FastAPI(
 )
 
 # Configure CORS - make it more flexible for different environments
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+origins = os.getenv("ALLOWED_ORIGINS")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # This will now accept multiple origins from environment variable
