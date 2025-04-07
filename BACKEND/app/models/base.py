@@ -1,6 +1,3 @@
-from sqlalchemy import MetaData
-from sqlalchemy.ext.declarative import declarative_base
+from sqlmodel import SQLModel
 
-metadata = MetaData
-
-Base = declarative_base()
+Base = SQLModel

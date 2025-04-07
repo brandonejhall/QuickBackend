@@ -1,17 +1,15 @@
-from sqlalchemy import ForeignKey, Column, Integer, String, DateTime
-from sqlalchemy.orm import relationship
+from sqlmodel import SQLModel, Field, Relationship, ForeignKey
+from typing import Optional
 from datetime import datetime
 
-from .base import Base
-
-
-class Files(Base):
+class Files(SQLModel, table=True):
     __tablename__ = "files"
 
-    id = Column(Integer, primary_key=True, nullable=False)
-    filename = Column(String, nullable=False)
-    document_type = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))  # Foreign key to Users table
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    filename: str
+    document_type: str
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    uploaded_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    users = relationship("Users", back_populates="files")
+    users: Optional["Users"] = Relationship(back_populates="files")

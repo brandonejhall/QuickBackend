@@ -13,6 +13,7 @@ from ..dependencies import get_drive_file_ops
 from ..schemas import FileBase
 from ..database import get_db
 from ..models import Files, Users
+from ..dependencies import get_current_user
 
 router = APIRouter()
 
@@ -24,16 +25,23 @@ async def get_documents():
     return {"message": "Document management API is running"}
 
 @router.post('/upload')
-async def document_upload(drive_ops: DriveFileOperations =
-                          Depends(get_drive_file_ops),
-                            file: UploadFile = File(...),
-                          document: str = Form(...),
-                          db: Session =  Depends(get_db)):
+async def document_upload(
+    drive_ops: DriveFileOperations = Depends(get_drive_file_ops),
+    file: UploadFile = File(...),
+    document: str = Form(...),
+    current_user_email: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     try:
+        print("Starting document upload...")
+        print(f"Current user email: {current_user_email}")
+        print(f"Document data: {document}")
+        
         # Parse the JSON string into a Pydantic model
         document_data = json.loads(document)
         parsed_document = FileBase(**document_data)
         parsed_document.filename = file.filename
+        print(f"Parsed document: {parsed_document}")
 
         # Validate file type
         file_extension = os.path.splitext(file.filename)[1]
@@ -44,6 +52,7 @@ async def document_upload(drive_ops: DriveFileOperations =
         user = db.query(Users).filter(Users.email == parsed_document.email).first()
         if not user:
             raise HTTPException(status_code=400, detail="User does not exist")
+        print(f"Found user: {user.email}")
 
         # Check if file already exists
         existing = db.query(Files).filter(
@@ -56,26 +65,36 @@ async def document_upload(drive_ops: DriveFileOperations =
 
         # Read file content once
         content = await file.read()
+        print("File content read successfully")
         
         # Check file size
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail="File too large")
 
+        print("Saving file to Google Drive...")
         # Save document to folder
         drive_ops.check_and_save_file(
             file.filename,
             BytesIO(content),
             parsed_document.email)
+        print("File saved to Google Drive successfully")
 
+        print("Creating database record...")
         # Create file record in database
-        db_file = create_file(parsed_document, db, user.id)
+        try:
+            db_file = create_file(parsed_document, db, user.id, current_user_email)
+            print("Database record created successfully")
+        except Exception as e:
+            print(f"Error creating database record: {str(e)}")
+            raise
 
         # Prepare response data
         response_data = {
             "id": db_file.id,
             "filename": file.filename,
             "document_type": parsed_document.document_type,
-            "email": parsed_document.email
+            "email": parsed_document.email,
+            "uploaded_by": current_user_email
         }
 
         # Safely handle created_at if it exists
@@ -84,53 +103,62 @@ async def document_upload(drive_ops: DriveFileOperations =
         else:
             response_data["created_at"] = None
 
+        print("Upload completed successfully")
         return response_data
     except json.JSONDecodeError:
+        print("Error: Invalid document data format")
         raise HTTPException(status_code=400, detail="Invalid document data format")
     except Exception as e:
+        print(f"Error in document upload: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding file: {str(e)}")
 
 
-def create_file(file: FileBase, db:Session , user_id):
+def create_file(file: FileBase, db: Session, user_id: int, uploaded_by: str):
+    print(f"Creating file record with: filename={file.filename}, document_type={file.document_type}, user_id={user_id}, uploaded_by={uploaded_by}")
     db_file = Files(
-            filename = file.filename,
-            document_type = file.document_type,
-            user_id = user_id
+        filename=file.filename,
+        document_type=file.document_type,
+        user_id=user_id,
+        uploaded_by=uploaded_by
     )
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
+    print("File record created successfully")
     return db_file
 
 
-@router.delete('/delete/{email}/{filename}')
+@router.delete('/delete/{document_id}')
 async def delete_document(
-        email: str,
-        filename: str,
-        drive_ops: DriveFileOperations = Depends(get_drive_file_ops),
-        db: Session = Depends(get_db)
+    document_id: int,
+    drive_ops: DriveFileOperations = Depends(get_drive_file_ops),
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
 ):
-
     try:
-        # Find the user
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Find the file in the database
-        db_file = db.query(Files).filter(
-            Files.filename == filename,
-            Files.user_id == user.id
-        ).first()
-
+        db_file = db.query(Files).filter(Files.id == document_id).first()
         if not db_file:
             raise HTTPException(status_code=404, detail="File not found")
 
+        # Get the user who owns the file
+        user = db.query(Users).filter(Users.id == db_file.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Check if current user is admin or the owner of the file
+        current_user_obj = db.query(Users).filter(Users.email == current_user).first()
+        if not current_user_obj:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        if current_user_obj.role != "admin" and current_user_obj.id != user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this file")
+
         # Delete from Google Drive
         drive_delete_count = drive_ops.find_and_delete_files(
-            file_name=filename,
-            folder_name=email
+            file_name=db_file.filename,
+            folder_name=user.email
         )
 
         # Delete from database
@@ -142,7 +170,7 @@ async def delete_document(
             content={
                 "message": "File deleted successfully",
                 "drive_files_deleted": drive_delete_count,
-                "filename": filename
+                "filename": db_file.filename
             }
         )
 
@@ -150,38 +178,63 @@ async def delete_document(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
 
-@router.get('/documents/{email}')
-async def get_user_documents(email: str, db: Session = Depends(get_db)):
+@router.get("/documents/{email}")
+async def get_documents_by_user(
+    email: str,
+    page: int = 1,
+    per_page: int = 5,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        # Find the user
+        # Get user
         user = db.query(Users).filter(Users.email == email).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Get all documents for the user
-        documents = db.query(Files).filter(Files.user_id == user.id).all()
-        
-        # Format the response
+        # Get current user's role
+        current_user_obj = db.query(Users).filter(Users.email == current_user).first()
+        if not current_user_obj:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Calculate offset
+        offset = (page - 1) * per_page
+
+        # If current user is admin, get all documents
+        if current_user_obj.role == "admin":
+            total_documents = db.query(Files).count()
+            documents = db.query(Files).order_by(Files.created_at.desc()).offset(offset).limit(per_page).all()
+        else:
+            # For regular users, get only their documents
+            total_documents = db.query(Files).filter(Files.user_id == user.id).count()
+            documents = db.query(Files).filter(
+                Files.user_id == user.id
+            ).order_by(Files.created_at.desc()).offset(offset).limit(per_page).all()
+
+        # Format documents for response
         formatted_documents = []
         for doc in documents:
-            document_data = {
+            doc_user = db.query(Users).filter(Users.id == doc.user_id).first()
+            formatted_documents.append({
                 "id": doc.id,
                 "filename": doc.filename,
-                "document_type": doc.document_type
-            }
-            # Safely handle created_at if it exists
-            if hasattr(doc, 'created_at') and doc.created_at:
-                document_data["created_at"] = doc.created_at.isoformat()
-            else:
-                document_data["created_at"] = None
-                
-            formatted_documents.append(document_data)
+                "document_type": doc.document_type,
+                "email": doc_user.email if doc_user else "unknown",
+                "uploaded_by": doc.uploaded_by,
+                "created_at": doc.created_at.isoformat()
+            })
 
-        return formatted_documents
+        return {
+            "documents": formatted_documents,
+            "total": total_documents,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_documents + per_page - 1) // per_page
+        }
+
     except Exception as e:
-        print(f"Error fetching documents: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
-    
+        print(f"Error in get_documents_by_user: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/download/{email}/{filename}')
 async def download_document(

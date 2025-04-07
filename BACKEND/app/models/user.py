@@ -1,21 +1,20 @@
-from sqlalchemy import String, Integer, Column, Enum
-from sqlalchemy.orm import relationship
-from .base import Base
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List
 import enum
 
-class UserRole(enum.Enum):
+class UserRole(str, enum.Enum):
     ADMIN = "admin"
     USER = "user"
 
-class Users(Base):
+class Users(SQLModel, table=True):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, nullable=False)
-    email = Column(String, nullable=False, index=True)
-    password = Column(String, nullable=False, index=True)
-    fullname = Column(String, nullable=False, index=True)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.USER)
-    files = relationship("Files", back_populates="users")
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    password: str = Field(index=True)
+    fullname: str = Field(index=True)
+    role: UserRole = Field(default=UserRole.USER)
+    files: List["Files"] = Relationship(back_populates="users")
 
 __all__ = ['Users', 'UserRole']
 
