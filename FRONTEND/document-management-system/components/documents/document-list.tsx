@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { FileText, Trash2, Download } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,6 +30,11 @@ export default function DocumentList({ email }: DocumentListProps) {
   const { toast } = useToast()
   const { user } = useAuth()
 
+  // If no user is logged in, show nothing
+  if (!user) {
+    return null
+  }
+
   const handleDelete = async () => {
     if (!documentToDelete) return
 
@@ -51,8 +56,10 @@ export default function DocumentList({ email }: DocumentListProps) {
   }
 
   const handleDownload = async (filename: string) => {
+    if (!user?.email) return
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/documents/download/${user?.email}/${filename}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/documents/download/${user.email}/${filename}`)
       if (!response.ok) throw new Error('Download failed')
       
       const blob = await response.blob()

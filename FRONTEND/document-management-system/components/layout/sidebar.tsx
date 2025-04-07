@@ -44,9 +44,9 @@ export default function Sidebar() {
       </nav>
       <div className="border-t p-4">
         <div className="flex items-center space-x-4">
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
+          <div className="relative h-5 w-5 overflow-hidden ">
             <Image
-              src="/founder.jpeg"
+              src="/logo-symbol.png"
               alt="User Avatar"
               fill
               className="object-cover"
