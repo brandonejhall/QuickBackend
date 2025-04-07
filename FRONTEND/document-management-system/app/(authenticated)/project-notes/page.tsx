@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { Download, Trash2, Upload } from 'lucide-react'
-import { projectNotesApi, ProjectNote } from '@/lib/api'
+import { projectNotesApi, ProjectNote, documentApi } from '@/lib/api'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +75,10 @@ export default function ProjectNotesPage() {
       setTitle('')
       setDescription('')
       setSelectedFile(null)
+      
+      // Refresh recent documents after successful upload
+      await documentApi.getRecentUploads()
+      
       toast({
         title: 'Success',
         description: 'Project note created successfully',
@@ -113,6 +117,10 @@ export default function ProjectNotesPage() {
       formData.append('file', file)
       const updatedNote = await projectNotesApi.updateProjectNote(noteId, formData)
       setNotes(notes.map(note => note.id === noteId ? updatedNote : note))
+      
+      // Refresh recent documents after successful upload
+      await documentApi.getRecentUploads()
+      
       toast({
         title: 'Success',
         description: 'File uploaded successfully',

@@ -9,9 +9,20 @@ export interface Document {
 }
 
 export interface DocumentResponse {
+  id: string
   filename: string
   document_type: string
   created_at: string
+  uploaded_by: string
+  email: string
+}
+
+export interface PaginatedDocumentResponse {
+  documents: DocumentResponse[]
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
 }
 
 export interface UserSignup {
@@ -75,7 +86,7 @@ export const authApi = {
 export const documentApi = {
   // Get documents root
   async getDocumentsRoot() {
-    const response = await axios.get(`${API_URL}/api/documents`)
+    const response = await api.get('/documents')
     return response.data
   },
 
@@ -85,7 +96,7 @@ export const documentApi = {
     formData.append('file', file)
     formData.append('document', JSON.stringify(document))
 
-    const response = await axios.post(`${API_URL}/api/documents/upload`, formData, {
+    const response = await api.post('/documents/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -94,20 +105,20 @@ export const documentApi = {
   },
 
   // Delete a document
-  async deleteDocument(email: string, filename: string) {
-    const response = await axios.delete(`${API_URL}/api/documents/delete/${email}/${filename}`)
+  async deleteDocument(documentId: string) {
+    const response = await api.delete(`/documents/delete/${documentId}`)
     return response.data
   },
 
   // Get user documents
-  async getUserDocuments(email: string): Promise<DocumentResponse[]> {
-    const response = await axios.get(`${API_URL}/api/documents/documents/${email}`)
+  async getUserDocuments(email: string, page: number = 1): Promise<PaginatedDocumentResponse> {
+    const response = await api.get(`/documents/documents/${email}?page=${page}`)
     return response.data
   },
 
   // Search users
   async searchUsers(query: string) {
-    const response = await axios.get(`${API_URL}/api/documents/users/search/${query}`)
+    const response = await api.get(`/documents/users/search/${query}`)
     return response.data
   },
 
@@ -115,7 +126,7 @@ export const documentApi = {
   async getRecentUploads(limit: number = 10) {
     try {
       console.log('Fetching recent uploads...')
-      const response = await axios.get(`${API_URL}/api/documents/recent-uploads?limit=${limit}`)
+      const response = await api.get(`/documents/recent-uploads?limit=${limit}`)
       console.log('Recent uploads response:', response.data)
       return response.data
     } catch (error) {

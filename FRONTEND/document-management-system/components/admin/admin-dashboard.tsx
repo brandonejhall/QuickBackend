@@ -66,7 +66,7 @@ export default function AdminDashboard() {
                 <div key={doc.id} className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <p className="font-medium">{doc.name}</p>
-                    <p className="text-sm text-muted-foreground">Uploaded by: {doc.userId}</p>
+                    <p className="text-sm text-muted-foreground">Uploaded by: {doc.uploadedBy}</p>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {new Date(doc.uploadedAt).toLocaleDateString()}

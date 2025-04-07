@@ -58,7 +58,7 @@ export default function AdminDocumentList() {
             <div>
               <h3 className="font-medium">{doc.name}</h3>
               <p className="text-sm text-muted-foreground">
-                Uploaded by: {doc.userId} | {new Date(doc.uploadedAt).toLocaleDateString()}
+                Uploaded by: {doc.uploadedBy} | {new Date(doc.uploadedAt).toLocaleDateString()}
               </p>
               <p className="text-sm text-muted-foreground">Type: {doc.type}</p>
             </div>

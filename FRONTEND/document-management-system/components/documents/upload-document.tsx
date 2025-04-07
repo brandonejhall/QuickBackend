@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
 import { useDocuments } from "@/context/document-context"
+import { documentApi } from "@/lib/api"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_FILE_TYPES = [
@@ -76,20 +77,16 @@ export default function UploadDocument({ email }: UploadDocumentProps) {
         })
       }, 100)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Upload the file
+      await documentApi.uploadDocument(file, {
+        filename: file.name,
+        document_type: file.type,
+        email: email // Use the provided email
+      })
 
       // Complete the upload
       clearInterval(interval)
       setProgress(100)
-
-      // Add document to context
-      await uploadDocument({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        file: file,
-      })
 
       toast({
         title: "Upload successful",
@@ -98,18 +95,18 @@ export default function UploadDocument({ email }: UploadDocumentProps) {
 
       // Reset form
       setFile(null)
-      setProgress(0)
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+        fileInputRef.current.value = ''
       }
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: "There was an error uploading your file. Please try again.",
+        description: "Failed to upload file. Please try again.",
       })
     } finally {
       setIsUploading(false)
+      setProgress(0)
     }
   }
 

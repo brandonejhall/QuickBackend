@@ -8,6 +8,7 @@ interface Document {
   id: string
   name: string
   userId: string
+  uploadedBy: string
   uploadedAt: string
   type: string
 }
@@ -19,14 +20,24 @@ interface DocumentUpload {
   file: File
 }
 
+interface PaginationInfo {
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+}
+
 interface DocumentContextType {
   documents: Document[]
   isLoading: boolean
+  pagination: PaginationInfo
+  currentPage: number
   addDocument: (document: Document) => void
   removeDocument: (id: string) => void
   uploadDocument: (document: DocumentUpload) => Promise<any>
   deleteDocument: (id: string) => Promise<void>
   downloadDocument: (filename: string, email: string) => Promise<void>
+  loadMoreDocuments: (page: number) => Promise<void>
 }
 
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined)
@@ -34,44 +45,56 @@ const DocumentContext = createContext<DocumentContextType | undefined>(undefined
 export function DocumentProvider({ children }: { children: React.ReactNode }) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    total: 0,
+    page: 1,
+    per_page: 5,
+    total_pages: 1
+  })
   const { user } = useAuth()
 
-  useEffect(() => {
-    const loadDocuments = async () => {
-      if (!user) {
-        setDocuments([])
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        // Fetch documents from API
-        console.log('Fetching documents for user:', user.email)
-        const response = await api.get(`/documents/documents/${encodeURIComponent(user.email)}`)
-        console.log('Documents response:', response.data)
-        
-        const formattedDocuments = response.data.map((doc: any) => ({
-          id: doc.id?.toString() || Date.now().toString(),
-          name: doc.filename,
-          userId: user.email,
-          uploadedAt: doc.created_at || new Date().toISOString(),
-          type: doc.document_type || 'unknown'
-        }))
-
-        setDocuments(formattedDocuments)
-      } catch (error) {
-        console.error('Error loading documents:', error)
-        setDocuments([])
-      } finally {
-        setIsLoading(false)
-      }
+  const loadDocuments = async (page: number = 1) => {
+    if (!user) {
+      setDocuments([])
+      setIsLoading(false)
+      return
     }
 
-    loadDocuments()
+    try {
+      setIsLoading(true)
+      const response = await api.get(`/documents/documents/${encodeURIComponent(user.email)}?page=${page}`)
+      
+      const formattedDocuments = response.data.documents.map((doc: any) => ({
+        id: doc.id?.toString() || Date.now().toString(),
+        name: doc.filename,
+        userId: doc.email,
+        uploadedBy: doc.uploaded_by || user.email,
+        uploadedAt: doc.created_at || new Date().toISOString(),
+        type: doc.document_type || 'unknown'
+      }))
+
+      setDocuments(page === 1 ? formattedDocuments : [...documents, ...formattedDocuments])
+      setPagination(response.data)
+      setCurrentPage(page)
+    } catch (error) {
+      console.error('Error loading documents:', error)
+      setDocuments([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDocuments(1)
   }, [user])
 
+  const loadMoreDocuments = async (page: number) => {
+    await loadDocuments(page)
+  }
+
   const addDocument = (document: Document) => {
-    setDocuments(prev => [...prev, document])
+    setDocuments(prev => [document, ...prev])
   }
 
   const removeDocument = (id: string) => {
@@ -116,6 +139,7 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
         id: response.data.id || Date.now().toString(),
         name: document.name,
         userId: user.email,
+        uploadedBy: user.email,
         uploadedAt: new Date().toISOString(),
         type: document.type
       }
@@ -135,12 +159,8 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
 
   const deleteDocument = async (id: string) => {
     try {
-      await api.delete(`/documents/${id}`)
-      setDocuments(prev => {
-        const newDocuments = prev.filter(doc => doc.id !== id)
-        localStorage.setItem('documents', JSON.stringify(newDocuments))
-        return newDocuments
-      })
+      await api.delete(`/documents/delete/${id}`)
+      removeDocument(id)
     } catch (error) {
       console.error("Error deleting document:", error)
       throw error
@@ -177,11 +197,14 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
   const value = {
     documents,
     isLoading,
+    pagination,
+    currentPage,
     addDocument,
     removeDocument,
     uploadDocument,
     deleteDocument,
-    downloadDocument
+    downloadDocument,
+    loadMoreDocuments
   }
 
   return <DocumentContext.Provider value={value}>{children}</DocumentContext.Provider>

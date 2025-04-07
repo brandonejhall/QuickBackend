@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import UploadDocument from "@/components/documents/upload-document"
-import { documentApi } from "@/lib/api"
+import { documentApi, DocumentResponse } from "@/lib/api"
 import { Trash2 } from "lucide-react"
 import {
   AlertDialog,
@@ -27,12 +27,6 @@ interface UserDocumentsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-interface Document {
-  filename: string
-  document_type: string
-  created_at: string
-}
-
 export default function UserDocumentsDialog({
   userId,
   userEmail,
@@ -40,21 +34,31 @@ export default function UserDocumentsDialog({
   open,
   onOpenChange
 }: UserDocumentsDialogProps) {
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<DocumentResponse[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
-      loadDocuments()
+      loadDocuments(1)
     }
   }, [open])
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (page: number = 1) => {
     try {
       setIsLoading(true)
-      const userDocs = await documentApi.getUserDocuments(userEmail)
-      setDocuments(userDocs)
+      const response = await documentApi.getUserDocuments(userEmail, page)
+      
+      if (page === 1) {
+        setDocuments(response.documents)
+      } else {
+        setDocuments(prev => [...prev, ...response.documents])
+      }
+      
+      setHasMore(response.page < response.total_pages)
+      setCurrentPage(response.page)
     } catch (error) {
       toast({
         title: "Error",
@@ -66,14 +70,14 @@ export default function UserDocumentsDialog({
     }
   }
 
-  const handleDelete = async (filename: string) => {
+  const handleDelete = async (documentId: string) => {
     try {
-      await documentApi.deleteDocument(userEmail, filename)
+      await documentApi.deleteDocument(documentId)
       toast({
         title: "Success",
         description: "Document deleted successfully"
       })
-      loadDocuments() // Refresh the list
+      loadDocuments(1) // Refresh the list from the first page
     } catch (error) {
       toast({
         title: "Error",
@@ -108,63 +112,79 @@ export default function UserDocumentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Documents for {userName}</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden">
           <UploadDocument email={userEmail} />
           
-          <div className="rounded-md border">
-            <div className="bg-brims-blue p-2 text-sm font-medium text-white">Documents</div>
-            <div className="divide-y">
-              {documents.map((doc, index) => (
-                <div key={index} className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-medium">{doc.filename}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {doc.document_type} • {new Date(doc.created_at).toLocaleDateString()}
-                    </p>
+          {isLoading && documents.length === 0 ? (
+            <div className="text-center">Loading documents...</div>
+          ) : documents.length === 0 ? (
+            <div className="text-center">No documents found</div>
+          ) : (
+            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(70vh - 200px)' }}>
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between p-2 border rounded">
+                    <div>
+                      <p className="font-medium">{doc.filename}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {doc.document_type} • Uploaded by {doc.uploaded_by} • {new Date(doc.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(doc.filename)}
+                      >
+                        Download
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete this document.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(doc.id)}
+                              className="bg-red-500 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(doc.filename)}
-                    >
-                      Download
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the document "{doc.filename}" from {userName}'s account.
-                            This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(doc.filename)}
-                            className="bg-red-500 hover:bg-red-700"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                ))}
+              </div>
+              
+              {hasMore && (
+                <div className="flex justify-center pt-4 pb-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => loadDocuments(currentPage + 1)}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Load More"}
+                  </Button>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
