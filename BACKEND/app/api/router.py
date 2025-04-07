@@ -1,5 +1,7 @@
 from fastapi import APIRouter
-from . import auth, document_management
+from app.api import auth
+from app.api import document_management
+from app.api.endpoints import project_notes
 
 api_router = APIRouter()
 
@@ -14,6 +16,12 @@ api_router.include_router(
     document_management.router,
     prefix="/documents",
     tags=["documents"]
+)
+
+api_router.include_router(
+    project_notes.router,
+    prefix="/project-notes",
+    tags=["project-notes"]
 )
 
 

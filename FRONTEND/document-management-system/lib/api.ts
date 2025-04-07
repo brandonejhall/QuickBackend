@@ -31,6 +31,17 @@ export interface AuthResponse {
   role: string
 }
 
+export interface ProjectNote {
+  id: number
+  title: string
+  description: string
+  file_id: string | null
+  file_name: string | null
+  file_type: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const authApi = {
   // Sign up a new user
   async signup(userData: UserSignup): Promise<{ message: string }> {
@@ -111,6 +122,47 @@ export const documentApi = {
       console.error('Error fetching recent uploads:', error)
       throw error
     }
+  }
+}
+
+export const projectNotesApi = {
+  // Get all project notes
+  async getProjectNotes(): Promise<ProjectNote[]> {
+    const response = await api.get('/project-notes')
+    return response.data
+  },
+
+  // Create a new project note
+  async createProjectNote(formData: FormData): Promise<ProjectNote> {
+    const response = await api.post('/project-notes', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  // Delete a project note
+  async deleteProjectNote(noteId: number): Promise<void> {
+    await api.delete(`/project-notes/${noteId}`)
+  },
+
+  // Update a project note
+  async updateProjectNote(noteId: number, formData: FormData): Promise<ProjectNote> {
+    const response = await api.put(`/project-notes/${noteId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  // Download a file
+  async downloadFile(noteId: number): Promise<Blob> {
+    const response = await api.get(`/project-notes/${noteId}/download`, {
+      responseType: 'blob',
+    })
+    return response.data
   }
 }
 

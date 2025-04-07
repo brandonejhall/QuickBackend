@@ -15,6 +15,7 @@ const userNavigation = [
 // Navigation items for admins
 const adminNavigation = [
   { name: "Dashboard", href: "/dashboard" },
+  { name: "Project Notes", href: "/project-notes" },
 ]
 
 export default function Sidebar() {

@@ -153,9 +153,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await authApi.login({ email, password })
       console.log('Login response:', response)
       
+      if (!response.role) {
+        throw new Error('No role received from server')
+      }
+      
+      const userData = { email, role: response.role as UserRole }
       localStorage.setItem('token', response.access_token)
+      localStorage.setItem('user', JSON.stringify(userData))
       setToken(response.access_token)
-      setUser({ email, role: response.role as UserRole })
+      setUser(userData)
       // Initialize empty documents array for new user
       localStorage.setItem('documents', JSON.stringify([]))
       setIsLoading(false)
