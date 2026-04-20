@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api import auth
 from app.api import document_management
-from app.api.endpoints import project_notes
+from app.api.endpoints import project_notes, assets, dashboard, cost_events, activity, users
 
 api_router = APIRouter()
 
@@ -22,6 +22,36 @@ api_router.include_router(
     project_notes.router,
     prefix="/project-notes",
     tags=["project-notes"]
+)
+
+api_router.include_router(
+    assets.router,
+    prefix="/assets",
+    tags=["assets"]
+)
+
+api_router.include_router(
+    dashboard.router,
+    prefix="/dashboard",
+    tags=["dashboard"]
+)
+
+api_router.include_router(
+    cost_events.router,
+    prefix="/cost-events",
+    tags=["cost-events"]
+)
+
+api_router.include_router(
+    activity.router,
+    prefix="/activity-feed",
+    tags=["activity-feed"]
+)
+
+api_router.include_router(
+    users.router,
+    prefix="/users",
+    tags=["users"]
 )
 
 

@@ -10,6 +10,7 @@ from ..core.security import verify_password, get_password_hash, create_access_to
 from ..database import get_db
 from ..schemas import UserBase, UserLogin, UserCreate
 from ..models import Users, UserRole
+from ..models.activity_log import ActivityLog, ActivityEventType, ActivityStatus
 
 router = APIRouter()
 
@@ -43,7 +44,16 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
         )
 
     access_token = create_access_token(data={"sub": user.email})
-    
+
+    db.add(ActivityLog(
+        event_type=ActivityEventType.USER_LOGIN,
+        user_email=user.email,
+        action="Logged in to Dashboard",
+        target=user.email,
+        status=ActivityStatus.INFO,
+    ))
+    db.commit()
+
     return {
         "access_token": access_token,
         "token_type": "bearer",

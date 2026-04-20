@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 
 from .file import *
-
+from app.models.user import UserRole
 
 
 class UserBase(BaseModel):
@@ -22,6 +22,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    role: UserRole
 
     class Config:
         from_attributes = True

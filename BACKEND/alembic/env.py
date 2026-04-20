@@ -4,7 +4,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from app.models import Base,Users,Files
+from app.models import (
+    Base, Users, Files, ProjectNote,
+    Asset, ConditionEntry, Unit, AssetEquipment, AssetDocument, CostEvent,
+    ActivityLog,
+)
 from app.database import engine
 import os
 from dotenv import load_dotenv

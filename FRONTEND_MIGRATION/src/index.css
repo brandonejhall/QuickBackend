@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brims-navy: #232B8E;
+  --color-brims-amber: #F29F05;
+  --color-brims-navy-dark: #1A206B;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+}
+
+.brims-grid {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
